@@ -31,5 +31,22 @@
     </label>
     <!-- This will resolve to /static/js/script.js -->
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <!-- In your served index.html, after loading the switch -->
+    <script>
+        const powerCheckbox = document.getElementById('power');  // your switch’s ID
+  
+        powerCheckbox.addEventListener('change', () => {
+         // Determine desired state
+        const state = powerCheckbox.checked ? 'on' : 'off';
+  
+        // Send it to your Flask server
+        fetch('/api/power', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ state })
+        });
+        });
+    </script>
+  
 </body>
 </html>
