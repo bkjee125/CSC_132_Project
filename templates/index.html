@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeaterBuddie</title>
+    <!-- This will resolve to /static/css/styles.css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    </head>
+<body>
+    <fieldset class="title">
+        <h1 id= "header">HeaterBuddie</h1>
+        <p id="description">Your Personal HeaterBuddie</p>
+    </fieldset>
+
+    <fieldset class="status"> <!-- Chat GPT assisted with this class name-->
+        <div class="set-temp" id="temperature">Set Temperature: 0°F</div>
+        <div class="current-temp" id="currentTemperature">Current Temperature: 0°F</div>
+        <label class="Adjust" id="Adjustment-label" for="heatSlider">Adjust the Heat: 
+            <input type="range" id="heatSlider" min="0" max="100" value="0" step="2">   <!-- Github Copilot-->
+        </label>
+        <div class="button-controls">
+            <button id="decrease">&minus;</button>  
+            <button id="increase">+</button>
+        </div>
+    </fieldset>
+
+    <label class="switch">On/Off    <!--Chat GPT assisted with this label and input-->
+        <input type="checkbox" id="power">
+        <span class="slider round"></span>
+    </label>
+    <!-- This will resolve to /static/js/script.js -->
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
