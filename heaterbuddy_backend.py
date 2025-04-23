@@ -7,9 +7,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask_sqlalchemy import SQLAlchemy
 import json
+import serial
 
 app = Flask(__name__)
- 
+ser = serial.Serial("COM3", 9600)
+
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///heater.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
