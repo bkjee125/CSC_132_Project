@@ -2,20 +2,22 @@ const int heaterPin = 5;     // PWM pin to MOSFET gate
 const int maxPWM = 255;      // Max power level (0-255)
 const int rampDelay = 50;   // Delay between steps (in milliseconds)
 
+const int heaterPin = 9;  // digital pin to MOSFET gate
+
 void setup() {
   pinMode(heaterPin, OUTPUT);
+  digitalWrite(heaterPin, LOW);
+  Serial.begin(115200);
 }
 
 void loop() {
-  // Ramp from 0 up to maxPWM
-  for (int pwm = 0; pwm <= maxPWM; pwm++) {
-    analogWrite(heaterPin, pwm);
-    delay(rampDelay);  // Small delay between steps
+  if (Serial.available()) {
+    char cmd = Serial.read();
+    if (cmd == '1') {
+      digitalWrite(heaterPin, HIGH);  // Heater ON
+    }
+    else if (cmd == '0') {
+      digitalWrite(heaterPin, LOW);   // Heater OFF
+    }
   }
-
-  // After ramping up, hold at maxPWM
-  analogWrite(heaterPin, maxPWM);
-
-  // Keep it running forever
-  while (true);  // Stops the loop here
 }
