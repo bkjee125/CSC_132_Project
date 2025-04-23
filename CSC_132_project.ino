@@ -7,7 +7,7 @@ const int heaterPin = 9;  // digital pin to MOSFET gate
 void setup() {
   pinMode(heaterPin, OUTPUT);
   digitalWrite(heaterPin, LOW);
-  Serial.begin(115200);
+  Serial.begin(9600);
 }
 
 void loop() {
