@@ -9,8 +9,9 @@ from flask_sqlalchemy import SQLAlchemy
 import json
 import serial
 
+
 app = Flask(__name__)
-ser = serial.Serial("COM3", 9600)
+ser = serial.Serial("COM4", 9600, timeout=1)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///heater.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -261,4 +262,4 @@ def update_current_temperature():
 # Run the Flask server
  
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port="8000")
+    app.run(debug=True, host="0.0.0.0", port="8000", use_reloader=False)
