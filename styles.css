@@ -62,3 +62,77 @@ div {
     display: inline-block;
 }
 
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+  }
+  
+  /* Hide the native checkbox */
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  /* The track */
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #555;                               /* dark track when OFF */
+    border-radius: 34px;
+    transition: background 0.3s, box-shadow 0.3s;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.4);
+  }
+  
+  /* The circle thumb */
+  .slider::before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: #fff;
+    border-radius: 50%;
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  
+  /* OFF/ON labels inside the track */
+  .slider::after {
+    content: "OFF";
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: #ddd;
+    transition: color 0.3s, right 0.3s, left 0.3s;
+  }
+  
+  /* Checked (ON) state: move thumb, change track color */
+  .switch input:checked + .slider {
+    background: linear-gradient(45deg, #FF8C42, #FF3D1F);  /* warm gradient */
+    box-shadow: inset 0 0 5px rgba(255,60,30,0.6);
+  }
+  
+  .switch input:checked + .slider::before {
+    transform: translateX(26px);
+    box-shadow: 0 2px 8px rgba(255,60,30,0.6);
+  }
+  
+  .switch input:checked + .slider::after {
+    content: "ON";
+    left: 8px;
+    right: auto;
+    color: #fff;
+  }
+  
+  /* Focus state for accessibility */
+  .switch input:focus + .slider {
+    box-shadow: 0 0 2px 2px rgba(255,140,66,0.7);
+  }
+  
