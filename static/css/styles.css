@@ -1,63 +1,195 @@
-.switch {
+/*-------------------------------------------------
+  1) Color & size variables
+-------------------------------------------------*/
+:root {
+    --bg-dark:       #1E1F26;
+    --bg-secondary:  #2D2F36;
+    --accent:        #FF6E42;
+    --accent-dark:   #E65B2E;
+    --accent-light:  rgba(255,110,66,0.15);
+    --text-light:    #EAEAEA;
+    --text-muted:    #777;
+    --button-size:   44px;
+  }
+  
+  /*-------------------------------------------------
+    2) Reset & base styles
+  -------------------------------------------------*/
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    background: var(--bg-dark);
+    color: var(--text-light);
+    font-family: "Roboto", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 2rem;
+    line-height: 1.4;
+  }
+  
+  /*-------------------------------------------------
+    3) Headings & text
+  -------------------------------------------------*/
+  h1 {
+    font-family: "Tahoma", sans-serif;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  p,
+  div, label, legend {
+    font-size: 1rem;
+    color: var(--text-light);
+  }
+  
+  /*-------------------------------------------------
+    4) Fieldset layout
+  -------------------------------------------------*/
+  fieldset {
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-light);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    padding: 1rem 1.5rem;
+    width: 100%;
+    max-width: 400px;
+  }
+  
+  .title {
+    border: none;
+    text-align: center;
+    border-bottom: 2px solid var(--accent-light);
+    padding-bottom: 1rem;
+  }
+  
+  .status {
+    text-align: center;
+  }
+  
+  .status label,
+  .status input {
+    margin: 0;
+    padding: 1px;
+    display: inline-block;
+  }
+  
+  /*-------------------------------------------------
+    5) Slider adjustment
+  -------------------------------------------------*/
+  .Adjust {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  
+  .Adjust input[type="range"] {
+    width: 100%;
+  }
+  
+  /*-------------------------------------------------
+    6) iOS-style power switch
+  -------------------------------------------------*/
+  .switch {
     position: relative;
     display: inline-block;
     width: 60px;
     height: 34px;
-}
-
-body {
-    width: 100%;
-    height: 100vh;
-    margin: 0;
-    background-color: #2D2F36;
-}
-
-p {
-    color: white;
-    font-family: "Roboto", sans-serif;
-    font-size: 17px;
-}
-
-.Adjust, .switch {
-    color: white;
-    font-family: "Roboto", sans-serif;
-    font-size: 17px;
-}
-
-h1 {
-    color: white;
-    font-family: "Tahoma";
-    font-size: 30px;
-}
-
-.Adjust {
-    margin-top: 30px;
+    margin-top: 1rem;
+  }
+  
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--accent-light);
+    border: 1px solid var(--accent-dark);
+    border-radius: 34px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.4);
+    transition: background 0.3s, box-shadow 0.3s;
+    z-index: 1;
+  }
+  
+  .slider::before {
+    content: "";
+    position: absolute;
+    width: 26px; height: 26px;
+    left: 4px; bottom: 4px;
+    background-color: var(--bg-dark);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  
+  .slider::after {
+    content: "OFF";
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    font-size: 10px;
+    color: var(--accent-dark);
+    transition: color 0.3s, right 0.3s, left 0.3s;
+  }
+  
+  .switch input:checked + .slider {
+    background: linear-gradient(45deg, var(--accent), var(--accent-dark));
+    box-shadow: inset 0 0 5px rgba(255,70,40,0.7);
+  }
+  
+  .switch input:checked + .slider::before {
+    transform: translateX(26px);
+    box-shadow: 0 2px 8px rgba(255,70,40,0.7);
+  }
+  
+  .switch input:checked + .slider::after {
+    content: "ON";
+    left: 8px;
+    right: auto;
+    color: #fff;
+  }
+  
+  /*-------------------------------------------------
+    7) Plus/Minus buttons
+  -------------------------------------------------*/
+  .button-controls {
     display: flex;
+    gap: 0.75rem;
     justify-content: center;
-    align-items: center;
-}
-
-.title {
+    margin-top: 1rem;
+  }
+  
+  .button-controls button {
+    width: var(--button-size);
+    height: var(--button-size);
+    font-size: 1.5rem;
+    background-color: var(--accent);
+    color: var(--bg-dark);
     border: none;
-    text-align: center;
-    border-bottom: 3px solid #444;
-    margin: 0;
-    padding: 0;
-}
-
-.status {
-    border: none;
-    text-align: center;
-}
-
-div {
-    color: white;
-    font-family: "Robtoto";
-    font-size: 17px;
-}
-
-.status label, .status input {
-    margin: 0;
-    padding: 1px;
-    display: inline-block;
-}
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    cursor: pointer;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+  }
+  
+  .button-controls button:hover {
+    background-color: var(--accent-dark);
+  }
+  
+  .button-controls button:active {
+    transform: scale(0.9);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  
