@@ -5,8 +5,8 @@ const int rampDelay = 50;   // Delay between steps (in milliseconds)
 const int heaterPin = 9;  // digital pin to MOSFET gate
 
 void setup() {
-  pinMode(heaterPin, OUTPUT);
   digitalWrite(heaterPin, LOW);
+  pinMode(heaterPin, OUTPUT);
   Serial.begin(9600);
 }
 
