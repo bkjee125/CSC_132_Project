@@ -7,11 +7,24 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from flask_sqlalchemy import SQLAlchemy
 import json
-import serial
+import serial, threading, time
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 ser = serial.Serial("COM4", 9600, timeout=1)
+
+latest_temp = None
+
+def read_serial():
+    global latest_temp
+    while True:
+        line = ser.readline().decode("utf-8").strip()
+        try:
+            latest_temp = float(line)
+        except:
+            pass
+        time.sleep(0.1)
+
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///heater.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -257,6 +270,21 @@ def update_current_temperature():
         "message": "Current temperature updated.",
         "heater": heater.to_dict()
     })
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# Start background thread
+threading.Thread(target=read_serial, daemon=True).start()
+
+@app.route("/api/temperature")
+def api_temp():
+    if latest_temp is None:
+        return jsonify({"temperature": None}), 204
+    return jsonify({"temperature": round(latest_temp, 1)})
+
+
 
  
 # Run the Flask server
