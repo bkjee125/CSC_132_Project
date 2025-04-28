@@ -29,3 +29,26 @@ plusBtn.addEventListener('click', () => {
     tempDisplay.textContent = 'Set Temperature: ' + slider.value + '°F';
   }
 });
+
+const temp = document.getElementById("currentTemperature");
+
+async function refreshTemp() {
+  try {
+    const res = await fetch("/api/temperature");
+    if (!res.ok) throw new Error(res.statusText);
+    const { temperature } = await res.json();
+    // If temperature is none or endpoint returned 204, show placeholder
+    temp.textContent = temperature != null
+      ? temperature.toFixed(1) + "°F"
+      : "--°F";
+  } catch (err) {
+    console.error("Failed to fetch temp:", err);
+    temp.textContent = "--°F";
+  }
+}
+
+
+window.addEventListener("load", () => {
+  refreshTemp();                    // update once immediately
+  setInterval(refreshTemp, 2000);   // then every 2s
+});
