@@ -1,54 +1,58 @@
-// This code was given by ChatGPT as I do not know how to code in javascript
-// This code is for a simple temperature slider that updates the displayed temperature in Fahrenheit as the slider is moved.
-const slider = document.getElementById('heatSlider');
-    const tempDisplay = document.getElementById('temperature');
+// Grab all the elements once at load
+const setTempEl      = document.getElementById('temperature');
+const currentTempEl  = document.getElementById('currentTemperature');
+const slider         = document.getElementById('heatSlider');
+const decreaseBtn    = document.getElementById('decrease');
+const increaseBtn    = document.getElementById('increase');
 
-    slider.addEventListener('input', () => {
-      tempDisplay.textContent = 'Set Temperature: ' + slider.value + '°F';
-    });
-
-const minusBtn = document.getElementById("decrease");
-const plusBtn = document.getElementById("increase");
-
-//const slider = document.getElementById('heatSlider');
-// Force the slider to accept step=1
+// 1) Ensure the slider moves in steps of 1
 slider.step = 1;
 
-minusBtn.addEventListener('click', () => {
-  let v = +slider.value;
-  if (v > +slider.min) {
-    slider.value = v - 1;            // now valid because step=1
-    tempDisplay.textContent = 'Set Temperature: ' + slider.value + '°F';
+// 2) Initialize the “Set Temperature” display
+setTempEl.textContent = `Set Temperature: ${slider.value}°F`;
+
+// 3) Update “Set Temperature” on slider drag
+slider.addEventListener('input', () => {
+  setTempEl.textContent = `Set Temperature: ${slider.value}°F`;
+});
+
+// 4) Decrease button: move slider down by 1
+decreaseBtn.addEventListener('click', () => {
+  let v = Number(slider.value);
+  if (v > Number(slider.min)) {
+    slider.value = v - 1;
+    setTempEl.textContent = `Set Temperature: ${slider.value}°F`;
   }
 });
 
-plusBtn.addEventListener('click', () => {
-  let v = +slider.value;
-  if (v < +slider.max) {
+// 5) Increase button: move slider up by 1
+increaseBtn.addEventListener('click', () => {
+  let v = Number(slider.value);
+  if (v < Number(slider.max)) {
     slider.value = v + 1;
-    tempDisplay.textContent = 'Set Temperature: ' + slider.value + '°F';
+    setTempEl.textContent = `Set Temperature: ${slider.value}°F`;
   }
 });
 
-const temp = document.getElementById("currentTemperature");
-
+// 6) Poll the Flask API for the current sensor reading
 async function refreshTemp() {
+  let text = 'Current Temperature: --°F';
   try {
-    const res = await fetch("/api/temperature");
-    if (!res.ok) throw new Error(res.statusText);
-    const { temperature } = await res.json();
-    // If temperature is none or endpoint returned 204, show placeholder
-    temp.textContent = temperature != null
-      ? temperature.toFixed(1) + "°F"
-      : "--°F";
+    const res = await fetch('/api/temperature');
+    if (res.ok) {
+      const { temperature } = await res.json();
+      if (temperature != null) {
+        text = `Current Temperature: ${temperature.toFixed(1)}°F`;
+      }
+    }
   } catch (err) {
-    console.error("Failed to fetch temp:", err);
-    temp.textContent = "--°F";
+    console.error('Failed to fetch temperature:', err);
   }
+  currentTempEl.textContent = text;
 }
 
-
-window.addEventListener("load", () => {
-  refreshTemp();                    // update once immediately
-  setInterval(refreshTemp, 2000);   // then every 2s
+// 7) On page load, start polling every 2 seconds
+window.addEventListener('load', () => {
+  refreshTemp();                  // initial fetch
+  setInterval(refreshTemp, 2000); // fetch every 2 s
 });

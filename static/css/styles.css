@@ -192,4 +192,108 @@
     transform: scale(0.9);
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   }
-  
+
+
+/*––– Primary form buttons (Log In / Sign Up) –––*/
+input[type="submit"],
+button[type="submit"] {
+  display: block;
+  width: 60%;
+  margin: 1em auto;
+  height: var(--button-size);
+  font-size: 1rem;
+  font-weight: bold;
+  background: linear-gradient(45deg, var(--accent), var(--accent-dark));
+  border: none;
+  border-radius: 8px;
+  color: var(--bg-dark);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  min-width: 300px;
+}
+
+input[type="submit"]:hover,
+button[type="submit"]:hover {
+  background: var(--accent-dark);
+}
+
+input[type="submit"]:active,
+button[type="submit"]:active {
+  transform: scale(0.98);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* makes the form a centered, vertical stack */
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 400px;  /* same as your fieldset max-width */
+  margin: 0 auto;    /* center in the page */
+  gap: 1.5rem;       /* uniform space between fieldsets */
+}
+
+/* only target those form-footer links */
+form + p a {
+  color: var(--accent);
+  transition: color 0.2s;
+}
+
+form + p a:hover {
+  color: var(--accent-light);
+  text-decoration: underline;
+}
+
+/* make label/text + input sit inline and aligned */
+form fieldset label {
+  display: flex;
+  justify-content: space-between;  /* text on left, input on right */
+  align-items: center;             /* vertical centering */
+}
+
+/* constrain the inputs so they don’t fill 100% and push the label */
+form fieldset label input[type="text"],
+form fieldset label input[type="email"],
+form fieldset label input[type="password"] {
+  width: 65%;       /* or whatever percentage you like */
+  margin: 0;        /* remove any default offset */
+}
+
+.flash-messages {
+  list-style: none;
+  padding: 0;
+  margin: 1rem auto;
+  max-width: 400px;
+}
+
+.flash {
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.flash.error {
+  background: #e65b2e;
+  color: #fff;
+}
+
+.flash.success {
+  background: #2ee68c;
+  color: #000;
+}
+
+/* make every <a> look like your other form-footer links */
+a {
+  color: var(--accent);           /* bright orange */
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover,
+a:focus {
+  color: var(--accent-light);     /* lighter orange */
+  text-decoration: underline;
+}

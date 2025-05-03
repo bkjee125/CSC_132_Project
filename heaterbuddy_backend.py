@@ -1,58 +1,51 @@
-# Name: Cheyenne Deloney
-# Date: 4/23/25
-# Description: Heater Buddie Flask Server
-
-from flask import Flask, jsonify, request,  render_template
-from datetime import datetime
-from zoneinfo import ZoneInfo
+from flask import (
+    Flask, render_template, redirect, url_for,
+    request, jsonify, session, flash
+)
 from flask_sqlalchemy import SQLAlchemy
-import json
-import serial, threading, time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from werkzeug.security import generate_password_hash, check_password_hash
+import threading, time, serial, json
 
-
+# ---------------------------------------
+# Application Setup & Configuration
+# ---------------------------------------
 app = Flask(__name__, static_folder="static", template_folder="templates")
-ser = serial.Serial("COM4", 9600, timeout=1)
+app.config['SECRET_KEY'] = 'dev_secret_key_123'
+app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///heater.db"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # keep users logged in for 30 days
+db = SQLAlchemy(app)
 
 latest_temp = None
 
-def read_serial():
-    global latest_temp
-    while True:
-        line = ser.readline().decode("utf-8").strip()
-        try:
-            latest_temp = float(line)
-        except:
-            pass
-        time.sleep(0.1)
+# ---------------------------------------
+# Database Models
+# ---------------------------------------
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
 
-
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///heater.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db = SQLAlchemy(app)
- 
 class Heater(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    # To store the user's desired target temperature.
     _target_temp = db.Column(db.Text, nullable=True)
-    # The current temperature reading (sensor connected yet??)
     current_temperature = db.Column(db.Float, default=0)
-    # The heater status can be "on" or "off"
     status = db.Column(db.String(10), default="off")
     created_at = db.Column(db.DateTime, default=datetime.now(ZoneInfo("UTC")))
     updated_at = db.Column(db.DateTime, default=datetime.now(ZoneInfo("UTC")), onupdate=datetime.now(ZoneInfo("UTC")))
-    
+
     @property
     def target_temperature(self):
-        """When retrieving target_temperature, decode the JSON string to a float."""
         return float(json.loads(self._target_temp)) if self._target_temp else None
 
     @target_temperature.setter
     def target_temperature(self, temp):
-        """When setting target_temperature, convert the value into a JSON string for storage."""
         self._target_temp = json.dumps(temp)
-    
+
     def to_dict(self):
-        """Convert the heater model instance into a dictionary for JSON responses."""
         return {
             "id": self.id,
             "target_temperature": self.target_temperature,
@@ -61,233 +54,137 @@ class Heater(db.Model):
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
-    
-    def __repr__(self):
-        return f"<Heater {self.id}>"
-    
-    def __str__(self):
-        return (f"Heater {self.id}:\n"
-                f"Target Temperature: {self.target_temperature}\n"
-                f"Current Temperature: {self.current_temperature}\n"
-                f"Status: {self.status}")
 
- 
-# Create all the database tables 
- 
 with app.app_context():
     db.create_all()
 
- 
-# Initialize a new session
- 
-@app.route("/init", methods=["POST"])
-def init_heater():
-    """
-    Initialize a new session.
-    Expected JSON body (all keys optional):
-    {
-        "target_temperature": float,  # defaults to 0°F 
-        "status": "on" or "off"         # defaults to "off"
-    }
-    """
+# ---------------------------------------
+# Authentication Routes
+# ---------------------------------------
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    # once signed up, user stays logged in—don't clear session on GET
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email    = request.form.get('email')
+        password = request.form.get('password')
+
+        # basic validation
+        if not username or not email or not password:
+            flash('All fields are required.', 'error')
+            return render_template('signup.html')
+
+        # check uniqueness
+        if User.query.filter((User.username == username) | (User.email == email)).first():
+            flash('Username or email already taken.', 'error')
+            return render_template('signup.html')
+
+        # create & save user
+        pw_hash = generate_password_hash(password)
+        new_user = User(username=username, email=email, password_hash=pw_hash)
+        db.session.add(new_user)
+        db.session.commit()
+
+        # log them in and make session persistent
+        session.permanent = True
+        session['user_id'] = new_user.id
+        return redirect(url_for('index'))
+
+    return render_template('signup.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password_hash, password):
+            session.permanent = True
+            session['user_id'] = user.id
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password.', 'error')
+            return render_template('login.html')
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+# ---------------------------------------
+# Main Routes
+# ---------------------------------------
+@app.route('/')
+def root():
+    if 'user_id' not in session:
+        return redirect(url_for('signup'))
+    return redirect(url_for('index'))
+
+@app.route('/control')
+def index():
+    return render_template('index.html')
+
+# ---------------------------------------
+# API Routes
+# ---------------------------------------
+@app.route('/api/temperature')
+def api_temp():
+    temp = latest_temp if latest_temp is not None else None
+    return jsonify({"temperature": round(temp, 1) if temp is not None else None})
+
+@app.route('/api/power', methods=['POST'])
+def api_power():
     data = request.get_json() or {}
-    target_temp = data.get("target_temperature", 0)
-    status = data.get("status", "off")
-    
+    state = data.get('state')
+    if state not in ('on', 'off'):
+        return jsonify({"error": "Invalid state"}), 400
+    ser.write(b'1' if state == 'on' else b'0')
+    return ('', 204)
+
+@app.route('/init', methods=['POST'])
+def init_heater():
+    data = request.get_json() or {}
     heater = Heater()
-    heater.target_temperature = target_temp
-    heater.status = status
-    
+    heater.target_temperature = data.get('target_temperature', 0)
+    heater.status = data.get('status', 'off')
     db.session.add(heater)
     db.session.commit()
-    
-    return jsonify({
-        "success": True,
-        "message": "Session initialized.",
-        "heater": heater.to_dict()
-    })
+    return jsonify({"heater": heater.to_dict()})
 
- 
-# List all sessions
- 
-@app.route("/list", methods=["GET"])
+@app.route('/list', methods=['GET'])
 def list_heaters():
-    """Return a list of all sessions."""
-    heaters = Heater.query.all()
-    heaters_data = [heater.to_dict() for heater in heaters]
-    return jsonify(heaters_data)
+    heaters = [h.to_dict() for h in Heater.query.all()]
+    return jsonify(heaters)
 
- 
-# Delete a session
- 
-@app.route("/delete", methods=["POST"])
-def delete_heater():
-    """
-    Delete a session.
-    Expected JSON body:
-    {
-        "id": int
-    }
-    """
-    heater_id = request.json.get("id")
-    if heater_id is None:
-        return jsonify({
-            "success": False,
-            "message": "Heater id not provided."
-        }), 400
-    
-    heater = Heater.query.get(heater_id)
-    if heater is None:
-        return jsonify({
-            "success": False,
-            "message": "Session not found."
-        }), 404
-    
-    db.session.delete(heater)
-    db.session.commit()
-    return jsonify({
-        "success": True,
-        "message": f"Session {heater_id} deleted."
-    })
-
- 
-# Update settings (target temperature and/or status)
- 
-@app.route("/set", methods=["POST"])
+@app.route('/set', methods=['POST'])
 def set_heater():
-    """
-    Update the heater settings.
-    Expected JSON body:
-    {
-        "id": int,
-        "target_temperature": float (optional),
-        "status": "on" or "off" (optional)
-    }
-    """
     data = request.get_json() or {}
-    heater_id = data.get("id")
-    if heater_id is None:
-        return jsonify({
-            "success": False,
-            "message": "Heater id not provided."
-        }), 400
-    
-    heater = Heater.query.get(heater_id)
-    if heater is None:
-        return jsonify({
-            "success": False,
-            "message": "Session not found."
-        }), 404
-    
-    if "target_temperature" in data:
-        heater.target_temperature = data["target_temperature"]
-    
-    if "status" in data:
-        heater.status = data["status"]
-    
+    heater = Heater.query.get(data.get('id'))
+    if 'target_temperature' in data:
+        heater.target_temperature = data['target_temperature']
+    if 'status' in data:
+        heater.status = data['status']
     db.session.commit()
-    return jsonify({
-        "success": True,
-        "message": "Heater settings updated.",
-        "heater": heater.to_dict()
-    })
+    return jsonify({"heater": heater.to_dict()})
 
- 
-# Retrieve the current status of a session
- 
-@app.route("/status", methods=["GET"])
+@app.route('/status', methods=['GET'])
 def heater_status():
-    """
-    Get the current status of a session.
-    Expected URL parameter:
-      id (the session id)
-    Example: /status?id=1
-    """
-    heater_id = request.args.get("id")
-    if not heater_id:
-        return jsonify({
-            "success": False,
-            "message": "Heater id is required."
-        }), 400
-    
-    heater = Heater.query.get(heater_id)
-    if heater is None:
-        return jsonify({
-            "success": False,
-            "message": "Session not found."
-        }), 404
-    
-    return jsonify({
-        "success": True,
-        "heater": heater.to_dict()
-    })
+    heater = Heater.query.get(request.args.get('id'))
+    return jsonify({"heater": heater.to_dict()})
 
-# Links backend to webpage.
-
-@app.route("/")
-def home():
-    return render_template("index.html")
- 
-# Update the current temperature reading (Is the sensor connected??)
- 
-@app.route("/update_current", methods=["POST"])
+@app.route('/update_current', methods=['POST'])
 def update_current_temperature():
-    """
-    Update the current temperature reading.
-    Expected JSON body:
-    {
-        "id": int,
-        "current_temperature": float
-    }
-    """
     data = request.get_json() or {}
-    heater_id = data.get("id")
-    if heater_id is None:
-        return jsonify({
-            "success": False,
-            "message": "Heater id not provided."
-        }), 400
-    
-    heater = Heater.query.get(heater_id)
-    if heater is None:
-        return jsonify({
-            "success": False,
-            "message": "Session not found."
-        }), 404
-    
-    current_temp = data.get("current_temperature")
-    if current_temp is None:
-        return jsonify({
-            "success": False,
-            "message": "Current temperature value must be provided."
-        }), 400
-    
-    heater.current_temperature = current_temp
+    heater = Heater.query.get(data.get('id'))
+    heater.current_temperature = data.get('current_temperature')
     db.session.commit()
-    
-    return jsonify({
-        "success": True,
-        "message": "Current temperature updated.",
-        "heater": heater.to_dict()
-    })
+    return jsonify({"heater": heater.to_dict()})
 
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-# Start background thread
-threading.Thread(target=read_serial, daemon=True).start()
-
-@app.route("/api/temperature")
-def api_temp():
-    if latest_temp is None:
-        return jsonify({"temperature": None}), 204
-    return jsonify({"temperature": round(latest_temp, 1)})
-
-
-
- 
-# Run the Flask server
- 
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port="8000", use_reloader=False)
+# ---------------------------------------
+# Run Application
+# ---------------------------------------
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=8000)
