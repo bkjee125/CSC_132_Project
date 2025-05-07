@@ -6,37 +6,45 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
+  <div class="brand">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo">
+    <h1>HeaterBuddie</h1>
+  </div>
 
-  <h1>Create Account</h1>
+  <div class="card">
 
-  <form method="post" action="{{ url_for('signup') }}">
-    <fieldset>
-      <label>
-        Username
-        <input type="text" name="username" required>
-      </label>
-    </fieldset>
+    <h1>Create Account</h1>
 
-    <fieldset>
-      <label>
-        Email
-        <input type="email" name="email" required>
-      </label>
-    </fieldset>
+    <form method="post" action="{{ url_for('signup') }}">
+      <fieldset>
+        <label>
+          Username
+          <input type="text" name="username" required placeholder="Username">
+        </label>
+      </fieldset>
 
-    <fieldset>
-      <label>
-        Password
-        <input type="password" name="password" minlength="6" required>
-      </label>
-    </fieldset>
+      <fieldset>
+        <label>
+          Email
+          <input type="email" name="email" required placeholder="email@gmail.com">
+        </label>
+      </fieldset>
 
-    <input type="submit" value="Sign Up">
-  </form>
+      <fieldset>
+        <label>
+          Password
+          <input type="password" name="password" minlength="6" required placeholder="Password">
+        </label>
+      </fieldset>
 
+      <input type="submit" value="Sign Up">
+    </form>
+  </div>
   <p>Already have an account? 
     <a href="{{ url_for('login') }}">Log in</a>
   </p>
-
+  <footer>
+    <p>© 2025 HeaterBuddie • v1.0</p>
+  </footer>
 </body>
 </html>

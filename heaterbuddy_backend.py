@@ -1,12 +1,13 @@
 from flask import (
     Flask, render_template, redirect, url_for,
-    request, jsonify, session, flash
+    request, jsonify, session, flash, get_flashed_messages
 )
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from werkzeug.security import generate_password_hash, check_password_hash
-import threading, time, serial, json
+import requests
+import json
 
 # ---------------------------------------
 # Application Setup & Configuration
@@ -15,10 +16,10 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 app.config['SECRET_KEY'] = 'dev_secret_key_123'
 app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///heater.db"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)  # keep users logged in for 30 days
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 db = SQLAlchemy(app)
 
-latest_temp = None
+latest_temp = None  # you can hook this up to your sensor-reading thread
 
 # ---------------------------------------
 # Database Models
@@ -35,7 +36,9 @@ class Heater(db.Model):
     current_temperature = db.Column(db.Float, default=0)
     status = db.Column(db.String(10), default="off")
     created_at = db.Column(db.DateTime, default=datetime.now(ZoneInfo("UTC")))
-    updated_at = db.Column(db.DateTime, default=datetime.now(ZoneInfo("UTC")), onupdate=datetime.now(ZoneInfo("UTC")))
+    updated_at = db.Column(db.DateTime,
+                           default=datetime.now(ZoneInfo("UTC")),
+                           onupdate=datetime.now(ZoneInfo("UTC")))
 
     @property
     def target_temperature(self):
@@ -52,7 +55,8 @@ class Heater(db.Model):
             "current_temperature": self.current_temperature,
             "status": self.status,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None
+            "updated_at": (self.updated_at.isoformat()
+                           if self.updated_at else None)
         }
 
 with app.app_context():
@@ -63,34 +67,34 @@ with app.app_context():
 # ---------------------------------------
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
-    # once signed up, user stays logged in—don't clear session on GET
     if request.method == 'POST':
         username = request.form.get('username')
         email    = request.form.get('email')
         password = request.form.get('password')
 
-        # basic validation
         if not username or not email or not password:
             flash('All fields are required.', 'error')
             return render_template('signup.html')
 
-        # check uniqueness
-        if User.query.filter((User.username == username) | (User.email == email)).first():
+        if User.query.filter((User.username == username) |
+                             (User.email == email)).first():
             flash('Username or email already taken.', 'error')
             return render_template('signup.html')
 
-        # create & save user
         pw_hash = generate_password_hash(password)
-        new_user = User(username=username, email=email, password_hash=pw_hash)
+        new_user = User(username=username, email=email,
+                        password_hash=pw_hash)
         db.session.add(new_user)
         db.session.commit()
 
-        # log them in and make session persistent
         session.permanent = True
         session['user_id'] = new_user.id
         return redirect(url_for('index'))
 
+    # clear any stray flashes on GET
+    _ = get_flashed_messages(with_categories=True)
     return render_template('signup.html')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -107,7 +111,10 @@ def login():
             flash('Invalid username or password.', 'error')
             return render_template('login.html')
 
+    # clear any stray flashes on GET
+    _ = get_flashed_messages(with_categories=True)
     return render_template('login.html')
+
 
 @app.route('/logout')
 def logout():
@@ -128,20 +135,19 @@ def index():
     return render_template('index.html')
 
 # ---------------------------------------
-# API Routes
+# Existing API Routes
 # ---------------------------------------
 @app.route('/api/temperature')
 def api_temp():
     temp = latest_temp if latest_temp is not None else None
-    return jsonify({"temperature": round(temp, 1) if temp is not None else None})
+    return jsonify({"temperature": round(temp, 1)
+                    if temp is not None else None})
 
 @app.route('/api/power', methods=['POST'])
 def api_power():
     data = request.get_json() or {}
     state = data.get('state')
-    if state not in ('on', 'off'):
-        return jsonify({"error": "Invalid state"}), 400
-    ser.write(b'1' if state == 'on' else b'0')
+    # placeholder: wire this up to serial/Bluetooth if you wish
     return ('', 204)
 
 @app.route('/init', methods=['POST'])
@@ -154,7 +160,7 @@ def init_heater():
     db.session.commit()
     return jsonify({"heater": heater.to_dict()})
 
-@app.route('/list', methods=['GET'])
+@app.route('/list')
 def list_heaters():
     heaters = [h.to_dict() for h in Heater.query.all()]
     return jsonify(heaters)
@@ -170,7 +176,7 @@ def set_heater():
     db.session.commit()
     return jsonify({"heater": heater.to_dict()})
 
-@app.route('/status', methods=['GET'])
+@app.route('/status')
 def heater_status():
     heater = Heater.query.get(request.args.get('id'))
     return jsonify({"heater": heater.to_dict()})
@@ -184,7 +190,29 @@ def update_current_temperature():
     return jsonify({"heater": heater.to_dict()})
 
 # ---------------------------------------
+# New: ESP32 Wi-Fi Control Endpoints
+# ---------------------------------------
+ESP32_IP = "192.168.1.42"  # change to your ESP32's actual IP
+
+@app.route('/api/heater/<action>', methods=['POST'])
+def api_heater(action):
+    if action in ('on', 'off'):
+        url = f"http://{ESP32_IP}/{action}"
+        resp = requests.post(url)
+    elif action == 'set':
+        val = request.get_json().get('value')
+        url = f"http://{ESP32_IP}/set"
+        resp = requests.post(url, params={"temp": val})
+    else:
+        return jsonify({"error": "Unknown action"}), 400
+
+    try:
+        return jsonify(resp.json()), resp.status_code
+    except ValueError:
+        return jsonify({"status": action}), resp.status_code
+
+# ---------------------------------------
 # Run Application
 # ---------------------------------------
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=8000)
+    app.run(debug=True, host='0.0.0.0', port=8000, use_reloader=False)

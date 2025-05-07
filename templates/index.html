@@ -8,6 +8,11 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     </head>
 <body>
+
+    <div class="brand">
+        <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo">
+      </div>
+    
     <fieldset class="title">
         <h1 id= "header">HeaterBuddie</h1>
         <p id="description">Your Personal HeaterBuddie</p>
@@ -35,5 +40,8 @@
         <a href="{{ url_for('logout') }}">Log out</a> to switch accounts.
       </p>
       
+      <footer>
+        <p>© 2025 HeaterBuddie • v1.0</p>
+      </footer>
 </body>
 </html>

@@ -297,3 +297,54 @@ a:focus {
   color: var(--accent-light);     /* lighter orange */
   text-decoration: underline;
 }
+
+/*––––– Card container –––––*/
+.card {
+  background: var(--bg-secondary);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  width: 100%;
+  max-width: 400px;        /* same width as your form used to be */
+  margin: 1rem auto;       /* center on the page with vertical spacing */
+  box-sizing: border-box;  
+}
+
+/* Center the <h2> inside the card */
+.card h1 {
+  margin: 0 0 1.5rem;
+  text-align: center;
+  font-size: 1.5rem;
+}
+
+/* Remove the old form width and centering (the card does this now) */
+.card form {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* Center the footer link inside the card */
+.card .footer-link {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+/* If you had an `.inline` fieldset, keep it unchanged: */
+.inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+/* styles.css */
+.brand {
+  text-align: center;
+  margin: 2rem 0 1rem;
+}
+.logo {
+  width: 80px;
+  display: block;
+  margin: 0 auto 0.5rem;
+}

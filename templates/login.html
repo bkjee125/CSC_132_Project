@@ -7,24 +7,32 @@
 </head>
 <body>
 
-  <h1>Log In</h1>
-  <form method="post" action="{{ url_for('login') }}">
-    <fieldset>
-      <label>
-        Username
-        <input type="text" name="username" required>
-      </label>
-    </fieldset>
-    <fieldset>
-      <label>
-        Password
-        <input type="password" name="password" required>
-      </label>
-    </fieldset>
-    <input type="submit" value="Log In">
-  </form>
+  <div class="brand">
+    <img src="{{ url_for('static', filename='images/logo.png') }}" class="logo">
+    <h1>HeaterBuddie</h1>
+  </div>
 
-  <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
-
+  <div class="card">
+    <h1>Log In</h1>
+    <form method="post" action="{{ url_for('login') }}">
+      <fieldset>
+        <label>
+          Username
+          <input type="text" name="username" required placeholder="Username">
+        </label>
+      </fieldset>
+      <fieldset>
+        <label>
+          Password
+          <input type="password" name="password" required placeholder="Password">
+        </label>
+      </fieldset>
+      <input type="submit" value="Log In">
+    </form>
+  <p class="footer-link">Don't have an account? <a href="{{ url_for('signup') }}">Sign up</a></p>
+  </div>
+  <footer>
+    <p>© 2025 HeaterBuddie • v1.0</p>
+  </footer>
 </body>
 </html>
