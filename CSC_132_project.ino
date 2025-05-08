@@ -1,125 +1,94 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
-// —— Phone Hotspot credentials ——
-const char* SSID = "Luke";    // ← replace with your hotspot’s SSID
-const char* PASS = "Password";    // ← replace with your hotspot’s password
-
-// —— Pins ——
+// Pin defs
 #define ONE_WIRE_BUS 4
-const int heaterPin = 5;
+#define MOSFET_PIN   5
 
-// —— OneWire + DS18B20 setup ——
+// Wi-Fi & Flask
+const char* ssid      = "Luke";
+const char* password  = "Password";
+const char* flaskHost = "172.20.10.9";
+const uint16_t flaskPort = 5000;
+
+// Globals
+WebServer server(80);
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
-// —— HTTP server on port 80 ——
-WebServer server(80);
+float currentTemp = 0.0;
+float targetTemp  = 60.0;
+bool  isOn        = false;
 
-// store a target temperature
-float targetTemp = 0.0;
-
-// —— Handlers ——  
-void handleOn()  {
-  digitalWrite(heaterPin, HIGH);
-  server.send(200, "application/json", "{\"status\":\"on\"}");
-}
-
-void handleOff() {
-  digitalWrite(heaterPin, LOW);
-  server.send(200, "application/json", "{\"status\":\"off\"}");
-}
-
-void handleSet() {
-  if (!server.hasArg("temp")) {
-    server.send(400, "application/json", "{\"error\":\"missing temp\"}");
-    return;
+void handleOn() { isOn = true;  server.send(200,"application/json","{\"status\":\"on\"}"); }
+void handleOff(){ isOn = false; server.send(200,"application/json","{\"status\":\"off\"}"); }
+void handleSet(){
+  if(server.hasArg("target")){
+    targetTemp = server.arg("target").toFloat();
+    server.send(200,"application/json", String("{\"target\":") + targetTemp + "}");
+  } else {
+    server.send(400,"application/json","{\"error\":\"missing target\"}");
   }
-  targetTemp = server.arg("temp").toFloat();
-  server.send(200, "application/json",
-              String("{\"target\":") + String(targetTemp, 1) + "}");
 }
-
-void handleTemp() {
+void handleTemp(){
   sensors.requestTemperatures();
-  float tempF = sensors.getTempCByIndex(0) * 9.0 / 5.0 + 32.0;
-  server.send(200, "application/json",
-              String("{\"temp\":") + String(tempF, 1) + "}");
+  float tC = sensors.getTempCByIndex(0);
+  if(tC == DEVICE_DISCONNECTED_C){
+    server.send(500,"application/json","{\"error\":\"sensor disconnected\"}");
+  } else {
+    float tF = sensors.toFahrenheit(tC);
+    server.send(200,"application/json", String("{\"current\":") + tF + "}");
+  }
 }
 
-void setup() {
+void setup(){
   Serial.begin(115200);
-  while (!Serial) { delay(10); }
-
-  // Initialize heater pin
-  pinMode(heaterPin, OUTPUT);
-  digitalWrite(heaterPin, LOW);
-
-  // Initialize DS18B20 sensor
+  pinMode(MOSFET_PIN, OUTPUT);
+  digitalWrite(MOSFET_PIN, LOW);
   sensors.begin();
-  Serial.println("DS18B20 initialized.");
+  WiFi.begin(ssid,password);
+  while(WiFi.status()!=WL_CONNECTED){ delay(500); Serial.print('.'); }
+  Serial.println("\nWi-Fi connected: " + WiFi.localIP().toString());
 
-  // 1) Scan for available Wi-Fi networks
-  Serial.println("Scanning for Wi-Fi networks...");
-  int n = WiFi.scanNetworks();
-  if (n == 0) {
-    Serial.println("  ► No networks found");
-  } else {
-    for (int i = 0; i < n; i++) {
-      String auth;
-      switch (WiFi.encryptionType(i)) {
-        case WIFI_AUTH_OPEN:         auth = "[OPEN]";    break;
-        case WIFI_AUTH_WEP:          auth = "[WEP]";     break;
-        case WIFI_AUTH_WPA_PSK:      auth = "[WPA]";     break;
-        case WIFI_AUTH_WPA2_PSK:     auth = "[WPA2]";    break;
-        case WIFI_AUTH_WPA_WPA2_PSK: auth = "[WPA/WPA2]";break;
-        default:                     auth = "[?]";       break;
-      }
-      Serial.printf("  ► %s (RSSI %d) %s\n",
-                    WiFi.SSID(i).c_str(),
-                    WiFi.RSSI(i),
-                    auth.c_str());
-      delay(10);
-    }
-  }
-  Serial.println("End scan.\n");
-
-  // 2) Attempt to connect to your hotspot
-  Serial.printf("Connecting to SSID: '%s'\n", SSID);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASS);
-
-  unsigned long start = millis();
-  const unsigned long timeout = 20000; // 20 seconds
-  while (WiFi.status() != WL_CONNECTED && millis() - start < timeout) {
-    Serial.print(".");
-    delay(500);
-  }
-  Serial.println();
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("✅ Connected in %.2fs – IP: %s\n",
-                  (millis() - start) / 1000.0,
-                  WiFi.localIP().toString().c_str());
-  } else {
-    Serial.printf("❌ Failed after %.2fs, status=%d\n",
-                  (millis() - start) / 1000.0,
-                  WiFi.status());
-  }
-
-  // 3) Register HTTP routes
-  server.on("/on",   HTTP_POST, handleOn);
-  server.on("/off",  HTTP_POST, handleOff);
-  server.on("/set",  HTTP_POST, handleSet);
-  server.on("/temp", HTTP_GET,  handleTemp);
-
-  // 4) Start the HTTP server
+  server.on("/on",  HTTP_GET, handleOn);
+  server.on("/off", HTTP_GET, handleOff);
+  server.on("/set", HTTP_GET, handleSet);
+  server.on("/temp",HTTP_GET, handleTemp);
   server.begin();
-  Serial.println("HTTP server started.");
+  Serial.println("Control HTTP server started");
 }
 
-void loop() {
+void loop(){
   server.handleClient();
+  static unsigned long last=0;
+  if(millis()-last<1000) return;
+  last = millis();
+
+  // Read sensor
+  sensors.requestTemperatures();
+  float tC = sensors.getTempCByIndex(0);
+  if(tC == DEVICE_DISCONNECTED_C){
+    Serial.println("⚠️  DS18B20 read failed");
+    return; // skip MOSFET & POST until valid
+  }
+  currentTemp = sensors.toFahrenheit(tC);
+
+  // Drive MOSFET
+  bool gate = isOn && (currentTemp < targetTemp);
+  digitalWrite(MOSFET_PIN, gate ? HIGH : LOW);
+
+  // Push update to Flask
+  if(WiFi.isConnected()){
+    HTTPClient http;
+    String url = String("http://") + flaskHost + ":" + flaskPort + "/api/heater/update";
+    http.begin(url);
+    http.addHeader("Content-Type","application/json");
+    String body = String("{\"current\":") + String(currentTemp,1) + "}";
+    int code = http.POST(body);
+    Serial.printf("POST /update → %d\n", code);
+    http.end();
+  }
 }
