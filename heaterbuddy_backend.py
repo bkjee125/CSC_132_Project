@@ -17,11 +17,13 @@ app.config.update(
 )
 db = SQLAlchemy(app)
 
-# ←─ Set this to your ESP32’s IP on the hotspot ────────────────────────────────
+# ←── Your ESP32’s IP ────────────────────────────────────────────────
 ESP32_IP   = '172.20.10.12'
 ESP32_BASE = f'http://{ESP32_IP}'
 
-# ── Models ────────────────────────────────────────────────────────────────────
+# ←── Hard-coded OpenWeatherMap key ─────────────────────────────────────
+
+# ── Models ───────────────────────────────────────────────────────────────
 class User(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     username      = db.Column(db.String(80), unique=True, nullable=False)
@@ -46,7 +48,7 @@ with app.app_context():
         db.session.add(Heater())
         db.session.commit()
 
-# ── Authentication ────────────────────────────────────────────────────────────
+# ── Authentication ────────────────────────────────────────────────────────
 @app.route('/signup', methods=['GET','POST'])
 def signup():
     if request.method == 'POST':
@@ -88,7 +90,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ── Main Pages ────────────────────────────────────────────────────────────────
+# ── Main Pages ────────────────────────────────────────────────────────────
 @app.route('/')
 def root():
     return redirect(url_for('control') if session.get('user_id') else url_for('login'))
@@ -99,23 +101,21 @@ def control():
         return redirect(url_for('login'))
     return render_template('index.html')
 
-# ── Helper to enforce login on API routes ─────────────────────────────────────
+# ── Auth Helper ───────────────────────────────────────────────────────────
 def require_auth():
     if not session.get('user_id'):
         return jsonify({'error':'Unauthorized'}), 401
 
-# ── Heater Control Endpoints ─────────────────────────────────────────────────
+# ── Heater Control API ─────────────────────────────────────────────────────
 @app.route('/api/heater/on', methods=['POST'])
 def heater_on():
     err = require_auth()
     if err: return err
-
     h = Heater.query.first()
     try:
         r = requests.get(f'{ESP32_BASE}/on', timeout=2)
         r.raise_for_status()
-        h.is_on = True
-        db.session.commit()
+        h.is_on = True; db.session.commit()
         return jsonify(r.json())
     except RequestException as e:
         app.logger.error(f"ESP32 /on failed: {e}")
@@ -125,13 +125,11 @@ def heater_on():
 def heater_off():
     err = require_auth()
     if err: return err
-
     h = Heater.query.first()
     try:
         r = requests.get(f'{ESP32_BASE}/off', timeout=2)
         r.raise_for_status()
-        h.is_on = False
-        db.session.commit()
+        h.is_on = False; db.session.commit()
         return jsonify(r.json())
     except RequestException as e:
         app.logger.error(f"ESP32 /off failed: {e}")
@@ -141,18 +139,15 @@ def heater_off():
 def heater_set():
     err = require_auth()
     if err: return err
-
     data = request.get_json(silent=True) or {}
     if 'target' not in data:
         return jsonify({'error':'Missing "target"'}), 400
     tgt = float(data['target'])
-
     h = Heater.query.first()
     try:
         r = requests.get(f'{ESP32_BASE}/set?target={tgt}', timeout=2)
         r.raise_for_status()
-        h.target_temp = tgt
-        db.session.commit()
+        h.target_temp = tgt; db.session.commit()
         return jsonify(r.json())
     except RequestException as e:
         app.logger.error(f"ESP32 /set failed: {e}")
@@ -175,6 +170,25 @@ def heater_update():
     db.session.commit()
     return jsonify({'updated': h.current_temp})
 
-# ── Run the server ─────────────────────────────────────────────────────────────
+# ── Weather Proxy ────────────────────────────────────────────────────────────
+@app.route('/api/weather')
+def api_weather():
+    """Fetch current weather from wttr.in (no API key needed)."""
+    city = "Ruston"  # change as desired
+    url = f"https://wttr.in/{city}?format=j1"
+    try:
+        r = requests.get(url, timeout=3)
+        r.raise_for_status()
+        data = r.json()
+        # wttr.in puts the current condition under 'current_condition'
+        cond = data['current_condition'][0]
+        temp = float(cond['temp_F'])
+        desc = cond['weatherDesc'][0]['value']
+        return jsonify({"temp": temp, "desc": desc})
+    except Exception as e:
+        app.logger.error("wttr.in fetch failed", exc_info=True)
+        return jsonify({"temp": None, "desc": None}), 502
+
+# ── Run Server ───────────────────────────────────────────────────────────────
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
